@@ -17,6 +17,7 @@ public:
     void setRootIndex(const QModelIndex &index);
 
 public slots:
+    void clearText();
     void selectPrev();
     void selectNext();
 
@@ -36,4 +37,5 @@ private:
     QLineEdit *lineEdit;
     QListView *listView;
     QSortFilterProxyModel *filterModel;
+    QModelIndex rootIndex;
 };

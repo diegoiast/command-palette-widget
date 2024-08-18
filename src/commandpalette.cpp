@@ -31,6 +31,10 @@ CommandPalette::CommandPalette(QWidget *parent)
 
     connect(lineEdit, &QLineEdit::textChanged, [this](const QString &text) {
         filterModel->setFilterFixedString(text);
+        if (text.isEmpty()) {
+            listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
+            listView->setRootIndex(filterModel->mapFromSource(rootIndex));
+        }
         updateVisibility();
     });
 
@@ -48,15 +52,23 @@ CommandPalette::CommandPalette(QWidget *parent)
 void CommandPalette::setDataModel(QAbstractItemModel *model)
 {
     filterModel->setSourceModel(model);
+    if (model) {
+        rootIndex = model->index(0, 0);
+        rootIndex = filterModel->mapFromSource(rootIndex);
+    }
 }
 
 void CommandPalette::setRootIndex(const QModelIndex &index)
 {
-    if (!index.isValid()) {
-        qWarning() << "Invalid QModelIndex provided for setting root index.";
-        return;
+    rootIndex = index;
+    if (index.isValid()) {
+        listView->setRootIndex(filterModel->mapFromSource(rootIndex));
     }
-    listView->setRootIndex(filterModel->mapFromSource(index));
+}
+
+void CommandPalette::clearText()
+{
+    lineEdit->clear();
 }
 
 bool CommandPalette::eventFilter(QObject *obj, QEvent *event)
@@ -137,10 +149,8 @@ void CommandPalette::selectNext()
     auto rowCount = filterModel->rowCount();
 
     if (!currentIndex.isValid()) {
-        if (rowCount > 0) {
-            auto firstIndex = filterModel->index(0, 0);
-            listView->setCurrentIndex(firstIndex);
-        }
+        listView->setRootIndex(filterModel->mapFromSource(rootIndex));
+        listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
         return;
     }
 
@@ -150,10 +160,9 @@ void CommandPalette::selectNext()
     auto indexBelow
         = currentIndex.sibling(currentRow, currentColumn).model()->index(rowBelow, currentColumn);
     if (indexBelow.isValid()) {
-        listView->setCurrentIndex(indexBelow);
+        listView->setCurrentIndex(filterModel->mapFromSource(indexBelow));
     } else if (rowCount > 0) {
-        auto firstIndex = filterModel->index(0, 0);
-        listView->setCurrentIndex(firstIndex);
+        listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
     }
 }
 
