@@ -2,10 +2,14 @@
 
 #include <QAbstractItemModel>
 #include <QFrame>
+#include <QSet>
+#include <QStyleOptionViewItem>
+#include <QStyledItemDelegate>
 
 class QLineEdit;
 class QListView;
 class QSortFilterProxyModel;
+class QMainWindow;
 
 class CommandPalette : public QFrame
 {
@@ -39,3 +43,38 @@ private:
     QSortFilterProxyModel *filterModel;
     QModelIndex rootIndex;
 };
+
+class ActionListModel : public QAbstractListModel
+{
+    Q_OBJECT
+
+public:
+    enum Roles {
+        IconRole = Qt::DecorationRole,
+        TextRole = Qt::DisplayRole,
+        ShortcutRole = Qt::UserRole + 1
+    };
+
+    explicit ActionListModel(QObject *parent = nullptr);
+    void setActions(const QList<QAction *> &actions);
+    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
+    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+
+private:
+    QList<QAction *> m_actions; // Stores the actions directly
+};
+
+class ActionDelegate : public QStyledItemDelegate
+{
+    Q_OBJECT
+
+public:
+    explicit ActionDelegate(QObject *parent = nullptr);
+
+    void paint(QPainter *painter,
+               const QStyleOptionViewItem &option,
+               const QModelIndex &index) const override;
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
+};
+
+QList<QAction *> collectWidgetActions(QMainWindow *mainWindow);

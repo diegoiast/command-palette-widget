@@ -1,9 +1,13 @@
 #include "commandpalette.h"
+#include "qmenubar.h"
+#include "qtoolbar.h"
 
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListView>
+#include <QMainWindow>
+#include <QPainter>
 #include <QSortFilterProxyModel>
 #include <QVBoxLayout>
 
@@ -232,4 +236,130 @@ void CommandPalette::adjustSize()
     } else {
         setFixedHeight(lineEditTotalHeight);
     }
+}
+
+QList<QAction *> collectActionsFromMenu(QMenu *menu, QSet<QAction *> &visitedActions)
+{
+    QList<QAction *> actions;
+
+    if (!menu)
+        return actions;
+
+    for (auto *action : menu->actions()) {
+        if (!visitedActions.contains(action)) {
+            actions.append(action);
+            visitedActions.insert(action);
+        }
+
+        if (auto *subMenu = action->menu()) {
+            actions += collectActionsFromMenu(subMenu, visitedActions);
+        }
+    }
+
+    return actions;
+}
+
+// Wrapper function to initialize the visited actions set
+QList<QAction *> collectActionsFromMenu(QMenu *menu)
+{
+    QSet<QAction *> visitedActions;
+    return collectActionsFromMenu(menu, visitedActions);
+}
+
+QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
+{
+    QList<QAction *> actions;
+
+    // Collect actions from toolbars
+    for (auto *toolbar : mainWindow->findChildren<QToolBar *>()) {
+        actions += toolbar->actions();
+    }
+
+    // Collect actions from menu bar
+    if (auto *menuBar = mainWindow->menuBar()) {
+        for (auto *action : menuBar->actions()) {
+            actions += collectActionsFromMenu(action->menu());
+        }
+    }
+
+    // Collect actions from subwidgets
+    for (auto *widget : mainWindow->findChildren<QWidget *>()) {
+        for (auto *action : widget->findChildren<QAction *>()) {
+            if (!actions.contains(action)) {
+                actions.append(action);
+            }
+        }
+    }
+
+    return actions;
+}
+
+ActionListModel::ActionListModel(QObject *parent)
+    : QAbstractListModel(parent)
+{}
+
+void ActionListModel::setActions(const QList<QAction *> &actions)
+{
+    beginResetModel();
+    m_actions = actions;
+    endResetModel();
+}
+
+int ActionListModel::rowCount(const QModelIndex &parent) const
+{
+    Q_UNUSED(parent);
+    return m_actions.size();
+}
+
+QVariant ActionListModel::data(const QModelIndex &index, int role) const
+{
+    if (!index.isValid() || index.row() >= m_actions.size()) {
+        return QVariant();
+    }
+
+    auto action = m_actions.at(index.row());
+
+    switch (role) {
+    case IconRole:
+        return action->icon();
+    case TextRole:
+        return action->text();
+    case ShortcutRole:
+        return action->shortcut().toString();
+    default:
+        return QVariant();
+    }
+}
+
+ActionDelegate::ActionDelegate(QObject *parent)
+    : QStyledItemDelegate(parent)
+{}
+
+void ActionDelegate::paint(QPainter *painter,
+                           const QStyleOptionViewItem &option,
+                           const QModelIndex &index) const
+{
+    QStyledItemDelegate::paint(painter, option, index);
+
+    QIcon icon = index.data(ActionListModel::IconRole).value<QIcon>();
+    QString text = index.data(ActionListModel::TextRole).toString();
+    QString shortcut = index.data(ActionListModel::ShortcutRole).toString();
+
+    QRect rect = option.rect;
+    QRect iconRect = QRect(rect.left() + 5, rect.top() + 5, 16, 16);
+    QRect textRect = QRect(rect.left() + 26, rect.top(), rect.width() - 26, rect.height() / 2);
+    QRect shortcutRect = QRect(rect.left() + 26,
+                               rect.top() + rect.height() / 2,
+                               rect.width() - 26,
+                               rect.height() / 2);
+
+    icon.paint(painter, iconRect, Qt::AlignCenter);
+
+    painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, text);
+    painter->drawText(shortcutRect, Qt::AlignRight | Qt::AlignVCenter, shortcut);
+}
+
+QSize ActionDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
+{
+    return QSize(200, 40); // Adjust as needed
 }

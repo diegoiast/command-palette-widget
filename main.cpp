@@ -47,6 +47,8 @@ public:
                                             "Hey Jude, don't make it bad."},
                                            this);
 
+        auto model3 = new ActionListModel(this);
+
         auto chooseFile = new QAction(tr("Choose file"), this);
         chooseFile->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_P));
         fileMenu->addAction(chooseFile);
@@ -72,6 +74,23 @@ public:
                 commandPalette->hide();
             } else {
                 commandPalette->setDataModel(model2);
+                commandPalette->clearText();
+                commandPalette->show();
+            }
+        });
+
+        auto chooseCommands = new QAction(tr("Choose commands"), this);
+        fileMenu->addAction(chooseCommands);
+        toolbar->addAction(chooseCommands);
+        chooseCommands->setShortcut(QKeySequence(Qt::ALT | Qt::CTRL | Qt::Key_P));
+
+        model3->setActions(collectWidgetActions(this));
+
+        connect(chooseCommands, &QAction::triggered, this, [this, model3]() {
+            if (commandPalette->isVisible()) {
+                commandPalette->hide();
+            } else {
+                commandPalette->setDataModel(model3);
                 commandPalette->clearText();
                 commandPalette->show();
             }
