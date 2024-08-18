@@ -151,22 +151,22 @@ void CommandPalette::selectNext()
 {
     auto currentIndex = listView->currentIndex();
     auto rowCount = filterModel->rowCount();
-
     if (!currentIndex.isValid()) {
-        listView->setRootIndex(filterModel->mapFromSource(rootIndex));
-        listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
+        if (rowCount > 0) {
+            auto sourceRootIndex = filterModel->mapToSource(rootIndex);
+            listView->setCurrentIndex(filterModel->mapFromSource(sourceRootIndex));
+        }
         return;
     }
 
     auto currentRow = currentIndex.row();
-    auto currentColumn = currentIndex.column();
     auto rowBelow = currentRow + 1;
-    auto indexBelow
-        = currentIndex.sibling(currentRow, currentColumn).model()->index(rowBelow, currentColumn);
-    if (indexBelow.isValid()) {
-        listView->setCurrentIndex(filterModel->mapFromSource(indexBelow));
+    if (rowBelow < rowCount) {
+        auto indexBelow = filterModel->index(rowBelow, currentIndex.column());
+        listView->setCurrentIndex(indexBelow);
     } else if (rowCount > 0) {
-        listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
+        auto firstIndex = filterModel->index(0, 0);
+        listView->setCurrentIndex(firstIndex);
     }
 }
 
@@ -174,7 +174,6 @@ void CommandPalette::selectPrev()
 {
     auto currentIndex = listView->currentIndex();
     auto rowCount = filterModel->rowCount();
-
     if (!currentIndex.isValid()) {
         if (rowCount > 0) {
             auto lastIndex = filterModel->index(rowCount - 1, 0);
@@ -184,11 +183,9 @@ void CommandPalette::selectPrev()
     }
 
     auto currentRow = currentIndex.row();
-    auto currentColumn = currentIndex.column();
     auto rowAbove = currentRow - 1;
-    auto indexAbove
-        = currentIndex.sibling(currentRow, currentColumn).model()->index(rowAbove, currentColumn);
-    if (indexAbove.isValid()) {
+    if (rowAbove >= 0) {
+        auto indexAbove = filterModel->index(rowAbove, currentIndex.column());
         listView->setCurrentIndex(indexAbove);
     } else if (rowCount > 0) {
         auto lastIndex = filterModel->index(rowCount - 1, 0);
