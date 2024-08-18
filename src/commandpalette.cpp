@@ -41,6 +41,19 @@ CommandPalette::CommandPalette(QWidget *parent)
         }
         updateVisibility();
     });
+    connect(lineEdit, &QLineEdit::returnPressed, this, [this]() {
+        hide();
+        auto selected = listView->currentIndex();
+        if (selected.isValid()) {
+            emit didChooseItem(selected, listView->model());
+        }
+    });
+    connect(listView, &QAbstractItemView::activated, this, [this](QModelIndex index) {
+        hide();
+        if (index.isValid()) {
+            emit didChooseItem(index, filterModel->sourceModel());
+        }
+    });
 
     layout->addWidget(lineEdit);
     layout->addWidget(listView);
@@ -323,6 +336,8 @@ QVariant ActionListModel::data(const QModelIndex &index, int role) const
         return action->text();
     case ShortcutRole:
         return action->shortcut().toString();
+    case Qt::UserRole:
+        return QVariant::fromValue(action);
     default:
         return QVariant();
     }

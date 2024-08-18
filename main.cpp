@@ -4,6 +4,7 @@
 #include <QFileSystemModel>
 #include <QMainWindow>
 #include <QMenuBar>
+#include <QMessageBox>
 #include <QStringListModel>
 #include <QTextEdit>
 #include <QToolBar>
@@ -49,6 +50,16 @@ public:
 
         auto model3 = new ActionListModel(this);
 
+        auto quitAction = new QAction(tr("Quit"), this);
+        quitAction->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_Q));
+        connect(quitAction, &QAction::triggered, this, &QMainWindow::close);
+        toolbar->addAction(quitAction);
+
+        mainLayout->addWidget(textEdit);
+        mainLayout->setContentsMargins(0, 0, 0, 0);
+        centralWidget->setLayout(mainLayout);
+        setCentralWidget(centralWidget);
+
         auto chooseFile = new QAction(tr("Choose file"), this);
         chooseFile->setShortcut(QKeySequence(Qt::CTRL | Qt::SHIFT | Qt::Key_P));
         fileMenu->addAction(chooseFile);
@@ -83,9 +94,7 @@ public:
         fileMenu->addAction(chooseCommands);
         toolbar->addAction(chooseCommands);
         chooseCommands->setShortcut(QKeySequence(Qt::ALT | Qt::CTRL | Qt::Key_P));
-
         model3->setActions(collectWidgetActions(this));
-
         connect(chooseCommands, &QAction::triggered, this, [this, model3]() {
             if (commandPalette->isVisible()) {
                 commandPalette->hide();
@@ -96,10 +105,33 @@ public:
             }
         });
 
-        mainLayout->addWidget(textEdit);
-        mainLayout->setContentsMargins(0, 0, 0, 0);
-        centralWidget->setLayout(mainLayout);
-        setCentralWidget(centralWidget);
+        fileMenu->addSeparator();
+        fileMenu->addAction(quitAction);
+
+        connect(commandPalette,
+                &CommandPalette::didChooseItem,
+                this,
+                [model1, model2, model3](const QModelIndex index, const QAbstractItemModel *model) {
+                    if (model == model1) {
+                        QMessageBox msgBox;
+                        msgBox.setWindowTitle("File");
+                        msgBox.setText(index.data().toString());
+                        msgBox.exec();
+                    }
+                    if (model == model2) {
+                        QMessageBox msgBox;
+                        msgBox.setWindowTitle("Message");
+                        msgBox.setText(index.data().toString());
+                        msgBox.exec();
+                    }
+                    if (model == model3) {
+                        auto data = model3->data(index, Qt::UserRole);
+                        auto action = data.value<QAction *>();
+                        if (action) {
+                            action->trigger();
+                        }
+                    }
+                });
     }
 };
 

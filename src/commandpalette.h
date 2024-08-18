@@ -30,6 +30,9 @@ protected:
     void showEvent(QShowEvent *event) override;
     void hideEvent(QHideEvent *event) override;
 
+signals:
+    void didChooseItem(const QModelIndex index, const QAbstractItemModel *model);
+
 private slots:
     void updateVisibility();
 
