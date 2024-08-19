@@ -47,12 +47,14 @@ CommandPalette::CommandPalette(QWidget *parent)
         hide();
         auto selected = listView->currentIndex();
         if (selected.isValid()) {
+            selected = filterModel->mapToSource(selected);
             emit didChooseItem(selected, filterModel->sourceModel());
         }
     });
     connect(listView, &QAbstractItemView::activated, this, [this](QModelIndex index) {
         hide();
         if (index.isValid()) {
+            index = filterModel->mapToSource(index);
             emit didChooseItem(index, filterModel->sourceModel());
         }
     });
