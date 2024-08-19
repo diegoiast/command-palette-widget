@@ -1,15 +1,15 @@
-#include "commandpalette.h"
-#include "qmenubar.h"
-#include "qtoolbar.h"
-
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListView>
 #include <QMainWindow>
+#include <QMenuBar>
 #include <QPainter>
 #include <QSortFilterProxyModel>
+#include <QToolBar>
 #include <QVBoxLayout>
+
+#include <CommandPaletteWidget/CommandPalette>
 
 CommandPalette::CommandPalette(QWidget *parent)
     : QFrame(parent)

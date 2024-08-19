@@ -10,7 +10,7 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 #include <QWidget>
-#include "src/commandpalette.h" // Ensure this path is correct
+#include <CommandPaletteWidget/CommandPalette>
 
 class MainWindow : public QMainWindow
 {
@@ -76,7 +76,7 @@ public:
             }
         });
 
-        auto chooseString = new QAction(tr("Choose strings"), this);
+        auto chooseString = new QAction(tr("Choose quote"), this);
         fileMenu->addAction(chooseString);
         toolbar->addAction(chooseString);
         chooseString->setShortcut(QKeySequence(Qt::CTRL | Qt::Key_P));
@@ -138,10 +138,8 @@ public:
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
-
     MainWindow window;
     window.resize(800, 600);
     window.show();
-
     return app.exec();
 }

@@ -67,6 +67,7 @@ private:
     QList<QAction *> m_actions; // Stores the actions directly
 };
 
+// TODO unused yet, eventually will be used for the ActionsListModel
 class ActionDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
