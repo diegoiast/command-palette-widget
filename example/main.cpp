@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <QAction>
 #include <QApplication>
 #include <QDir>

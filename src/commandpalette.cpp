@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: MIT
+
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
