@@ -58,10 +58,16 @@ CommandPalette::CommandPalette(QWidget *parent)
             emit didChooseItem(index, filterModel->sourceModel());
         }
     });
-    connect(listView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this](const QItemSelection &selected, const QItemSelection &deselected) {
-      auto index =  selected.indexes().first();
-      emit didSelectItem(index, filterModel->sourceModel());
-    });
+    connect(listView->selectionModel(),
+            &QItemSelectionModel::selectionChanged,
+            this,
+            [this](const QItemSelection &selected, const QItemSelection &) {
+                if (selected.indexes().size() == 0) {
+                    return;
+                }
+                auto index = selected.indexes().first();
+                emit didSelectItem(index, filterModel->sourceModel());
+            });
 
     layout->addWidget(lineEdit);
     layout->addWidget(listView);
