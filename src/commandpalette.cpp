@@ -44,12 +44,12 @@ CommandPalette::CommandPalette(QWidget *parent)
         updateVisibility();
     });
     connect(lineEdit, &QLineEdit::returnPressed, this, [this]() {
-        hide();
         auto selected = listView->currentIndex();
         if (selected.isValid()) {
             selected = filterModel->mapToSource(selected);
             emit didChooseItem(selected, filterModel->sourceModel());
         }
+        hide();
     });
     connect(listView, &QAbstractItemView::activated, this, [this](QModelIndex index) {
         hide();
@@ -57,6 +57,10 @@ CommandPalette::CommandPalette(QWidget *parent)
             index = filterModel->mapToSource(index);
             emit didChooseItem(index, filterModel->sourceModel());
         }
+    });
+    connect(listView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this](const QItemSelection &selected, const QItemSelection &deselected) {
+      auto index =  selected.indexes().first();
+      emit didSelectItem(index, filterModel->sourceModel());
     });
 
     layout->addWidget(lineEdit);
@@ -128,6 +132,7 @@ void CommandPalette::showEvent(QShowEvent *event)
 void CommandPalette::hideEvent(QHideEvent *event)
 {
     QFrame::hideEvent(event);
+    emit didHide();
 }
 
 void CommandPalette::updateVisibility()
