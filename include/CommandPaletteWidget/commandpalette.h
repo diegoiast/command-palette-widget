@@ -35,7 +35,7 @@ protected:
 signals:
     void didChooseItem(const QModelIndex index, const QAbstractItemModel *model);
     void didSelectItem(const QModelIndex index, const QAbstractItemModel *model);
-    void didHide(); 
+    void didHide();
 
 private slots:
     void updateVisibility();

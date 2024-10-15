@@ -52,11 +52,11 @@ CommandPalette::CommandPalette(QWidget *parent)
         hide();
     });
     connect(listView, &QAbstractItemView::activated, this, [this](QModelIndex index) {
-        hide();
         if (index.isValid()) {
             index = filterModel->mapToSource(index);
             emit didChooseItem(index, filterModel->sourceModel());
         }
+        hide();
     });
     connect(listView->selectionModel(),
             &QItemSelectionModel::selectionChanged,
