@@ -24,7 +24,7 @@ CommandPalette::CommandPalette(QWidget *parent)
     layout->setContentsMargins(5, 5, 5, 5);
 
     lineEdit = new QLineEdit(this);
-    lineEdit->setPlaceholderText("Type something here...");
+    lineEdit->setPlaceholderText(tr("Type something here..."));
     lineEdit->installEventFilter(this);
 
     listView = new QListView(this);
@@ -104,6 +104,10 @@ void CommandPalette::clearText()
 
 bool CommandPalette::eventFilter(QObject *obj, QEvent *event)
 {
+    if (!isVisible()){
+        return false;
+    }
+
     if (obj == parentWidget() && event->type() == QEvent::Resize) {
         adjustPosition();
         adjustSize();
@@ -239,21 +243,19 @@ void CommandPalette::adjustSize()
     auto margins = layout()->contentsMargins();
     auto lineEditTotalHeight = lineEditHeight + margins.top() + margins.bottom();
 
-    // Determine the width to use
     int desiredWidth = 400;
     if (auto parentWidget = this->parentWidget()) {
         int parentWidth = parentWidget->width();
-        int maxWidth = parentWidth - 50; // 50 pixels padding
+        int maxWidth = parentWidth - 50;
         setFixedWidth(std::min(desiredWidth, maxWidth));
     } else {
-        setFixedWidth(desiredWidth); // Default width if no parent
+        setFixedWidth(desiredWidth);
     }
 
-    // Adjust the height based on visibility of the list view
     if (listView->isVisible()) {
         auto itemHeight = listView->sizeHintForRow(0);
         if (itemHeight < 0) {
-            itemHeight = lineEditHeight; // Fallback if item height is not valid
+            itemHeight = lineEditHeight;
         }
         auto numItems = 7;
         auto totalHeight = lineEditTotalHeight + numItems * itemHeight;
@@ -263,60 +265,53 @@ void CommandPalette::adjustSize()
     }
 }
 
-QList<QAction *> collectActionsFromMenu(QMenu *menu, QSet<QAction *> &visitedActions)
+static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> void
 {
-    QList<QAction *> actions;
+    if (!menu) {
+        return;
+    }
 
-    if (!menu)
-        return actions;
-
-    for (auto *action : menu->actions()) {
-        if (!visitedActions.contains(action)) {
-            actions.append(action);
-            visitedActions.insert(action);
+    for (auto action : menu->actions()) {
+        if (action->text().isEmpty()) {
+            continue;
+        }
+        if (!actions.contains(action)) {
+            actions.push_back(action);
         }
 
         if (auto *subMenu = action->menu()) {
-            actions += collectActionsFromMenu(subMenu, visitedActions);
+            collectActionsFromMenu(actions, subMenu);
         }
     }
-
-    return actions;
-}
-
-// Wrapper function to initialize the visited actions set
-QList<QAction *> collectActionsFromMenu(QMenu *menu)
-{
-    QSet<QAction *> visitedActions;
-    return collectActionsFromMenu(menu, visitedActions);
 }
 
 QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
 {
-    QList<QAction *> actions;
-
-    // Collect actions from toolbars
-    for (auto *toolbar : mainWindow->findChildren<QToolBar *>()) {
-        actions += toolbar->actions();
-    }
-
-    // Collect actions from menu bar
-    if (auto *menuBar = mainWindow->menuBar()) {
-        for (auto *action : menuBar->actions()) {
-            actions += collectActionsFromMenu(action->menu());
-        }
-    }
-
-    // Collect actions from subwidgets
-    for (auto *widget : mainWindow->findChildren<QWidget *>()) {
-        for (auto *action : widget->findChildren<QAction *>()) {
-            if (!actions.contains(action)) {
-                actions.append(action);
+    auto addActions = [](auto &originalActions, auto const  &newActions) {
+        for (auto action : newActions) {
+            if (action->text().isEmpty()) {
+                continue;
             }
+            originalActions += action;
         }
+    };
+    
+    QList<QAction *> allActions;
+    for (auto toolbar : mainWindow->findChildren<QToolBar *>()) {
+        addActions(allActions, toolbar->actions());
     }
 
-    return actions;
+    if (auto menuBar = mainWindow->menuBar()) {
+        for (auto action : menuBar->actions()) {
+            if (action->text().isEmpty()) {
+                continue;
+            }
+            collectActionsFromMenu(allActions, action->menu());
+        }
+    }
+    addActions(allActions, mainWindow->focusWidget()->findChildren<QAction *>());
+    addActions(allActions, mainWindow->actions());
+    return allActions;
 }
 
 ActionListModel::ActionListModel(QObject *parent)
@@ -339,13 +334,20 @@ int ActionListModel::rowCount(const QModelIndex &parent) const
 QVariant ActionListModel::data(const QModelIndex &index, int role) const
 {
     if (!index.isValid() || index.row() >= m_actions.size()) {
-        return QVariant();
+        return {};
     }
 
     auto action = m_actions.at(index.row());
 
     switch (role) {
     case IconRole:
+        if (action->icon().isNull()) {
+            QIcon themeIcon = QIcon::fromTheme(QIcon::ThemeIcon::DocumentNew);
+            QSize iconSize = themeIcon.actualSize(QSize(32, 32));
+            QPixmap emptyPixmap(iconSize);
+            emptyPixmap.fill(Qt::transparent);
+            return QIcon(emptyPixmap);
+        }
         return action->icon();
     case TextRole:
         return action->text();
@@ -354,7 +356,7 @@ QVariant ActionListModel::data(const QModelIndex &index, int role) const
     case Qt::UserRole:
         return QVariant::fromValue(action);
     default:
-        return QVariant();
+        return {};
     }
 }
 

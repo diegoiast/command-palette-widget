@@ -65,7 +65,7 @@ public:
     explicit ActionListModel(QObject *parent = nullptr);
     void setActions(const QList<QAction *> &actions);
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
+    virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
 private:
     QList<QAction *> m_actions; // Stores the actions directly
