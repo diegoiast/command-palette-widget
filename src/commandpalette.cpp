@@ -292,6 +292,9 @@ QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
             if (action->text().isEmpty()) {
                 continue;
             }
+            if (originalActions.contains(action)) {
+              continue;
+            }
             originalActions += action;
         }
     };
