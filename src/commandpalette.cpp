@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include <QApplication>
 #include <QEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
@@ -95,6 +96,11 @@ void CommandPalette::setRootIndex(const QModelIndex &index)
     if (index.isValid()) {
         listView->setRootIndex(filterModel->mapFromSource(rootIndex));
     }
+}
+
+void CommandPalette::setItemDelegate(QStyledItemDelegate *delegate)
+{
+  listView->setItemDelegate(delegate);
 }
 
 void CommandPalette::clearText()
@@ -371,27 +377,26 @@ void ActionDelegate::paint(QPainter *painter,
                            const QStyleOptionViewItem &option,
                            const QModelIndex &index) const
 {
-    QStyledItemDelegate::paint(painter, option, index);
+    painter->save();
+    if (option.state & QStyle::State_Selected) {
+        painter->fillRect(option.rect, option.palette.highlight());
+        painter->setPen(option.palette.highlightedText().color());
+    } else {
+        painter->setPen(option.palette.text().color());
+    }
 
-    QIcon icon = index.data(ActionListModel::IconRole).value<QIcon>();
-    QString text = index.data(ActionListModel::TextRole).toString();
-    QString shortcut = index.data(ActionListModel::ShortcutRole).toString();
-
-    QRect rect = option.rect;
-    QRect iconRect = QRect(rect.left() + 5, rect.top() + 5, 16, 16);
-    QRect textRect = QRect(rect.left() + 26, rect.top(), rect.width() - 26, rect.height() / 2);
-    QRect shortcutRect = QRect(rect.left() + 26,
-                               rect.top() + rect.height() / 2,
-                               rect.width() - 26,
-                               rect.height() / 2);
+    auto iconSize = option.widget->style()->pixelMetric(QStyle::PM_ListViewIconSize, &option, option.widget);
+    auto margin = option.widget->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, option.widget);
+    auto icon = index.data(ActionListModel::IconRole).value<QIcon>();
+    auto text = index.data(ActionListModel::TextRole).toString();
+    auto shortcut = index.data(ActionListModel::ShortcutRole).toString();
+    auto rect = option.rect;
+    auto padding = iconSize + 2 * margin;
+    auto iconRect = QRect(rect.left() + margin, rect.top() + (rect.height() - iconSize) / 2, iconSize, iconSize);
+    auto textRect = QRect(rect.left() + padding, rect.top(), rect.width() - padding - margin, rect.height());
 
     icon.paint(painter, iconRect, Qt::AlignCenter);
-
-    painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, text);
-    painter->drawText(shortcutRect, Qt::AlignRight | Qt::AlignVCenter, shortcut);
-}
-
-QSize ActionDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const
-{
-    return QSize(200, 40); // Adjust as needed
+    painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, text);
+    painter->drawText(textRect, Qt::AlignRight | Qt::AlignVCenter, shortcut);
+    painter->restore();
 }

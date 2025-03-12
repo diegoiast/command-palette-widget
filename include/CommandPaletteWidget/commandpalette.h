@@ -21,6 +21,7 @@ public:
     CommandPalette(QWidget *parent = nullptr);
     void setDataModel(QAbstractItemModel *);
     void setRootIndex(const QModelIndex &index);
+    void setItemDelegate(QStyledItemDelegate *delegate);
 
 public slots:
     void clearText();
@@ -68,10 +69,9 @@ public:
     virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
 private:
-    QList<QAction *> m_actions; // Stores the actions directly
+    QList<QAction *> m_actions;
 };
 
-// TODO unused yet, eventually will be used for the ActionsListModel
 class ActionDelegate : public QStyledItemDelegate
 {
     Q_OBJECT
@@ -82,7 +82,6 @@ public:
     void paint(QPainter *painter,
                const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
-    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 };
 
 QList<QAction *> collectWidgetActions(QMainWindow *mainWindow);
