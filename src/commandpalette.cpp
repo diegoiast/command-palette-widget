@@ -318,7 +318,11 @@ QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
             collectActionsFromMenu(allActions, action->menu());
         }
     }
-    addActions(allActions, mainWindow->focusWidget()->findChildren<QAction *>());
+    
+    auto focused = mainWindow->focusWidget();
+    if (focused) {
+      addActions(allActions, focused->findChildren<QAction *>());
+    }
     addActions(allActions, mainWindow->actions());
     return allActions;
 }
