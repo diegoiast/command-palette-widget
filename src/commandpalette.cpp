@@ -35,6 +35,7 @@ CommandPalette::CommandPalette(QWidget *parent)
     filterModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
     listView->setModel(filterModel);
+    listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
     connect(lineEdit, &QLineEdit::textChanged, lineEdit, [this](const QString &text) {
         filterModel->setFilterFixedString(text);
