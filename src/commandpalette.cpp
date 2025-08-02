@@ -36,7 +36,7 @@ CommandPalette::CommandPalette(QWidget *parent)
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
     listView->setModel(filterModel);
 
-    connect(lineEdit, &QLineEdit::textChanged, [this](const QString &text) {
+    connect(lineEdit, &QLineEdit::textChanged, lineEdit, [this](const QString &text) {
         filterModel->setFilterFixedString(text);
         if (text.isEmpty()) {
             listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
@@ -100,7 +100,7 @@ void CommandPalette::setRootIndex(const QModelIndex &index)
 
 void CommandPalette::setItemDelegate(QStyledItemDelegate *delegate)
 {
-  listView->setItemDelegate(delegate);
+    listView->setItemDelegate(delegate);
 }
 
 void CommandPalette::clearText()
@@ -277,7 +277,7 @@ static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> vo
         return;
     }
 
-    for (auto action : menu->actions()) {
+    for (auto &action : menu->actions()) {
         if (action->text().isEmpty()) {
             continue;
         }
@@ -294,7 +294,7 @@ static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> vo
 QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
 {
     auto addActions = [](auto &originalActions, auto const  &newActions) {
-        for (auto action : newActions) {
+        for (auto &action : newActions) {
             if (action->text().isEmpty()) {
                 continue;
             }
@@ -306,12 +306,12 @@ QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
     };
     
     QList<QAction *> allActions;
-    for (auto toolbar : mainWindow->findChildren<QToolBar *>()) {
+    for (auto &toolbar : mainWindow->findChildren<QToolBar *>()) {
         addActions(allActions, toolbar->actions());
     }
 
     if (auto menuBar = mainWindow->menuBar()) {
-        for (auto action : menuBar->actions()) {
+        for (auto &action : menuBar->actions()) {
             if (action->text().isEmpty()) {
                 continue;
             }
