@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
 
+#include "CommandPaletteWidget/commandpalette.h"
 #include <QApplication>
 #include <QEvent>
 #include <QKeyEvent>
@@ -13,6 +14,7 @@
 #include <QVBoxLayout>
 
 #include <CommandPaletteWidget/CommandPalette>
+#include <qnamespace.h>
 
 CommandPalette::CommandPalette(QWidget *parent)
     : QFrame(parent)
@@ -31,7 +33,7 @@ CommandPalette::CommandPalette(QWidget *parent)
     listView = new QListView(this);
     listView->setAlternatingRowColors(true);
 
-    filterModel = new QSortFilterProxyModel(this);
+    filterModel = new CommandPaletteFilterModel(this);
     filterModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
     listView->setModel(filterModel);
@@ -102,6 +104,11 @@ void CommandPalette::setRootIndex(const QModelIndex &index)
 void CommandPalette::setItemDelegate(QStyledItemDelegate *delegate)
 {
     listView->setItemDelegate(delegate);
+}
+
+void CommandPalette::setFilterModes(FilterModes modes)
+{
+    filterModel->setFilterModes(modes);
 }
 
 void CommandPalette::clearText()
@@ -404,4 +411,85 @@ void ActionDelegate::paint(QPainter *painter,
     painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, text);
     painter->drawText(textRect, Qt::AlignRight | Qt::AlignVCenter, shortcut);
     painter->restore();
+}
+
+CommandPaletteFilterModel::CommandPaletteFilterModel(QObject *parent)
+    : QSortFilterProxyModel(parent)
+{}
+
+bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const {
+    QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
+    QString text = index.data(ActionListModel::TextRole).toString();
+    QString pattern = filterRegularExpression().pattern();
+
+    if (pattern.isEmpty()) {
+        return true;
+    }
+
+    if (m_modes.testFlag(CommandPalette::RemoveAccelerators)) {
+        text.remove('&');
+    }
+
+    if (m_modes.testFlag(CommandPalette::FileMatch)) {
+        return fileMatch(text, pattern);
+    }
+
+    if (m_modes.testFlag(CommandPalette::FuzzyMatch)) {
+        return fuzzyMatch(text, pattern);
+    }
+
+    return text.contains(filterRegularExpression());
+}
+
+bool CommandPaletteFilterModel::fuzzyMatch(const QString &haystack, const QString &needle) const {
+    return fileMatch(haystack, needle);
+}
+
+bool CommandPaletteFilterModel::fileMatch(const QString &haystack, const QString &needle) const {
+    QRegularExpression regex(needle, QRegularExpression::CaseInsensitiveOption);
+    return haystack.contains(regex);
+}
+
+int CommandPaletteFilterModel::fuzzyMatchScore(const QString &text, const QString &pattern) const {
+    const auto t = text.toCaseFolded();
+    const auto p = pattern.toCaseFolded();
+
+    if (p.isEmpty()) {
+        return 0;
+    }
+
+    int score = 0;
+    int tIndex = 0;
+    int lastMatch = -1;
+
+    for (int pIndex = 0; pIndex < p.length(); ++pIndex) {
+        const QChar pc = p[pIndex];
+        bool found = false;
+        while (tIndex < t.length()) {
+            if (t[tIndex] == pc) {
+                found = true;
+
+                // Bonus for consecutive matches
+                if (lastMatch == tIndex - 1) {
+                    score += 5;
+                } else {
+                    score += 1;
+                }
+
+                lastMatch = tIndex;
+                ++tIndex;
+                break;
+            }
+            ++tIndex;
+        }
+        if (!found) {
+            return 0;
+        }
+    }
+
+    return score;
+}
+
+bool CommandPaletteFilterModel::basicFuzzyMatch(const QString &text, const QString &pattern) const {
+    return fuzzyMatchScore(text, pattern) > 0;
 }

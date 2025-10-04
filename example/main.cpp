@@ -72,6 +72,7 @@ public:
             } else {
                 model1->setRootPath(rootPath);
                 commandPalette->setDataModel(model1);
+                commandPalette->setFilterModes(CommandPalette::FileMatch);
                 commandPalette->setRootIndex(index);
                 commandPalette->clearText();
                 commandPalette->show();
@@ -87,6 +88,7 @@ public:
                 commandPalette->hide();
             } else {
                 commandPalette->setDataModel(model2);
+                commandPalette->setFilterModes(CommandPalette::FuzzyMatch);
                 commandPalette->clearText();
                 commandPalette->show();
             }
