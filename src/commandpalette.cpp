@@ -13,6 +13,8 @@
 #include <QToolBar>
 #include <QVBoxLayout>
 
+#include "fuzzy.h"
+
 #include <CommandPaletteWidget/CommandPalette>
 #include <qnamespace.h>
 
@@ -161,17 +163,8 @@ void CommandPalette::hideEvent(QHideEvent *event)
 
 void CommandPalette::updateVisibility()
 {
-    auto visibleRowCount = 0;
-    for (auto row = 0; row < filterModel->rowCount(); ++row) {
-        auto index = filterModel->index(row, 0);
-        if (index.isValid()
-            && filterModel->data(index, Qt::DisplayRole)
-                   .toString()
-                   .contains(filterModel->filterRegularExpression())) {
-            ++visibleRowCount;
-        }
-    }
-    listView->setVisible(visibleRowCount > 0);
+    bool hasVisibleRows = filterModel->rowCount() > 0;
+    listView->setVisible(hasVisibleRows);
     adjustSize();
 }
 
@@ -253,27 +246,39 @@ void CommandPalette::adjustPosition()
 
 void CommandPalette::adjustSize()
 {
-    auto lineEditHeight = lineEdit->sizeHint().height();
     auto margins = layout()->contentsMargins();
-    auto lineEditTotalHeight = lineEditHeight + margins.top() + margins.bottom();
+    auto lineEditHeight = lineEdit->sizeHint().height();
+    auto frameWidth = style()->pixelMetric(QStyle::PM_DefaultFrameWidth, nullptr, this);
+    auto focusMargin = style()->pixelMetric(QStyle::PM_FocusFrameVMargin, nullptr, lineEdit);
+    auto spacing = layout()->spacing();
+    auto lineEditTotalHeight =
+        lineEditHeight + margins.top() + margins.bottom() + 2 * (frameWidth + focusMargin) + spacing;
+    auto desiredWidth = 400;
 
-    int desiredWidth = 400;
     if (auto parentWidget = this->parentWidget()) {
-        int parentWidth = parentWidget->width();
-        int maxWidth = parentWidth - 50;
+        auto parentWidth = parentWidget->width();
+        auto maxWidth = parentWidth - 50;
         setFixedWidth(std::min(desiredWidth, maxWidth));
     } else {
         setFixedWidth(desiredWidth);
     }
 
     if (listView->isVisible()) {
-        auto itemHeight = listView->sizeHintForRow(0);
-        if (itemHeight < 0) {
-            itemHeight = lineEditHeight;
-        }
-        auto numItems = 7;
-        auto totalHeight = lineEditTotalHeight + numItems * itemHeight;
+        auto maxVisibleItems = 10;
+        auto rowCount = filterModel->rowCount();
+        auto visibleItems = std::min(rowCount, maxVisibleItems);
+        auto rowsHeight = 0;
+
+        for (int i = 0; i < visibleItems; ++i)
+            rowsHeight += listView->sizeHintForRow(i);
+
+        rowsHeight += listView->contentsMargins().top() + listView->contentsMargins().bottom();
+        rowsHeight += 2 * listView->frameWidth();
+        auto totalHeight = lineEditTotalHeight + rowsHeight;
         setFixedHeight(totalHeight);
+
+        listView->setVerticalScrollBarPolicy(
+            rowCount > maxVisibleItems ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
     } else {
         setFixedHeight(lineEditTotalHeight);
     }
@@ -415,12 +420,20 @@ void ActionDelegate::paint(QPainter *painter,
 
 CommandPaletteFilterModel::CommandPaletteFilterModel(QObject *parent)
     : QSortFilterProxyModel(parent)
-{}
+{
+}
 
-bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const {
-    QModelIndex index = sourceModel()->index(sourceRow, 0, sourceParent);
-    QString text = index.data(ActionListModel::TextRole).toString();
-    QString pattern = filterRegularExpression().pattern();
+bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
+                                                 const QModelIndex &sourceParent) const
+{
+    auto index = sourceModel()->index(sourceRow, 0, sourceParent);
+    auto text = index.data(ActionListModel::TextRole).toString();
+    auto pattern = filterRegularExpression().pattern();
+    if (auto commandPalette = qobject_cast<const CommandPalette*>(parent())) {
+        if (auto lineEdit = commandPalette->findChild<QLineEdit*>()) {
+            pattern = lineEdit->text();
+        }
+    }
 
     if (pattern.isEmpty()) {
         return true;
@@ -441,55 +454,13 @@ bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow, const QModelInde
     return text.contains(filterRegularExpression());
 }
 
-bool CommandPaletteFilterModel::fuzzyMatch(const QString &haystack, const QString &needle) const {
-    return fileMatch(haystack, needle);
+bool CommandPaletteFilterModel::fuzzyMatch(const QString &haystack, const QString &needle) const
+{
+    return Fuzzy::levenshteinDistance(needle, haystack) < 3;
 }
 
-bool CommandPaletteFilterModel::fileMatch(const QString &haystack, const QString &needle) const {
-    QRegularExpression regex(needle, QRegularExpression::CaseInsensitiveOption);
-    return haystack.contains(regex);
-}
 
-int CommandPaletteFilterModel::fuzzyMatchScore(const QString &text, const QString &pattern) const {
-    const auto t = text.toCaseFolded();
-    const auto p = pattern.toCaseFolded();
-
-    if (p.isEmpty()) {
-        return 0;
-    }
-
-    int score = 0;
-    int tIndex = 0;
-    int lastMatch = -1;
-
-    for (int pIndex = 0; pIndex < p.length(); ++pIndex) {
-        const QChar pc = p[pIndex];
-        bool found = false;
-        while (tIndex < t.length()) {
-            if (t[tIndex] == pc) {
-                found = true;
-
-                // Bonus for consecutive matches
-                if (lastMatch == tIndex - 1) {
-                    score += 5;
-                } else {
-                    score += 1;
-                }
-
-                lastMatch = tIndex;
-                ++tIndex;
-                break;
-            }
-            ++tIndex;
-        }
-        if (!found) {
-            return 0;
-        }
-    }
-
-    return score;
-}
-
-bool CommandPaletteFilterModel::basicFuzzyMatch(const QString &text, const QString &pattern) const {
-    return fuzzyMatchScore(text, pattern) > 0;
+bool CommandPaletteFilterModel::fileMatch(const QString &haystack, const QString &needle) const
+{
+    return Fuzzy::scoreSimple(needle, haystack)  > 5;
 }

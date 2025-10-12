@@ -101,7 +101,6 @@ public:
   void setFilterModes(CommandPalette::FilterModes modes) { m_modes = modes; invalidateFilter(); }
 
 protected:
-    int fuzzyMatchScore(const QString &text, const QString &pattern) const;
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 
 private:
@@ -109,7 +108,6 @@ private:
 
     bool fuzzyMatch(const QString &haystack, const QString &needle) const;
     bool fileMatch(const QString &haystack, const QString &needle) const;
-    bool basicFuzzyMatch(const QString &text, const QString &pattern) const;
 };
 
 Q_DECLARE_OPERATORS_FOR_FLAGS(CommandPalette::FilterModes)
