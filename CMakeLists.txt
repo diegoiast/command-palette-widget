@@ -4,11 +4,12 @@
 # To test this - use the example/CMakeLists.txt
 # This CMakeList.txt should be included, not built directly
 
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.24)
 
-project(CommandPaletteWidget VERSION 0.1 LANGUAGES CXX)
+project(CommandPaletteWidget VERSION 0.2 LANGUAGES CXX)
 
 option(COMMAND_PALLETE_ENABLE_TESTS "Should we build testings" ON)
+option(COMMAND_PALLETE_BUILD_EXAMPLE "Should we build the example app" ON)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,6 +28,11 @@ add_library(CommandPaletteWidget
 target_link_libraries(CommandPaletteWidget PUBLIC Qt::Widgets)
 target_include_directories(CommandPaletteWidget PUBLIC include)
 target_include_directories(CommandPaletteWidget PRIVATE include)
+
+
+if (COMMAND_PALLETE_BUILD_EXAMPLE)
+    add_subdirectory(example)
+endif()
 
 if(COMMAND_PALLETE_ENABLE_TESTS)
     enable_testing()

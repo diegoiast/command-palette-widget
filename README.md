@@ -1,16 +1,17 @@
 # CommandPaletteWideget
 
-This is a Qt widget that behaves like the command pallete funnd
-in modenr
+This is a Qt widget that behaves like the command pallete found
+in modern applications (SublimeText, VSCode etc).
 
 ![Command palette demo](screencast.gif)
 
 Features:
 
-* You can feed it any `QAbstractItemModel` (tree based models 
-are still WIP).
+* You can feed it any `QAbstractItemModel` (tree based models are still WIP).
 * When the user chosess an item - a singal is emited.
-
+* Special filters (fuzzy search, remove accelerators, file search)
+* If your list contains list of files, you can set the filter
+  to file based (searches for part of filenames/dirs etc).
 
 ## Basic usage
 
@@ -49,13 +50,15 @@ connect(commandPalette, &CommandPalette::didChooseItem, this,
 ```
 
 You can also feed it a the list of available commands, from your window.
-Note the function `collectWidgetActions()` which is in this library.
+Note the function `collectWidgetActions()` which is in this library. This will
+search for all `QActions` in your window, from menus and toolbars.
 
 ```C++
 auto commandPalette = new CommandPalette(this);
 auto model = new ActionListModel(this);
 model->setActions(collectWidgetActions(this));
 commandPalette->setDataModel(model);
+commandPalette->setFilterModes(CommandPalette::FilterMode::FileMatch);
 connect(commandPalette, &CommandPalette::didChooseItem, this,
         [](const QModelIndex &index, const QAbstractItemModel *model) {
     auto data = model->data(index, Qt::UserRole);
@@ -74,6 +77,18 @@ You can use CPM - https://github.com/cpm-cmake/CPM.cmake
 include(CPM.cmake) 
 CPMAddPackage("gh:diegoiast/command-palette-widget#main") 
 ```
+
+You can use standard CMake:
+```
+include(FetchContent)
+FetchContent_Declare(
+    command_palette_widget
+    GIT_REPOSITORY https://github.com/diegoiast/command-palette-widget.git
+    GIT_TAG main
+)
+FetchContent_MakeAvailable(command_palette_widget)
+```
+
 
 You can use a git subtree, and add that subdirectory:
 ```
