@@ -5,20 +5,19 @@
 #include <QAbstractItemModel>
 #include <QFrame>
 #include <QSet>
+#include <QSortFilterProxyModel>
 #include <QStyleOptionViewItem>
 #include <QStyledItemDelegate>
-#include <QSortFilterProxyModel>
 
 class QLineEdit;
 class QListView;
 class QMainWindow;
 class CommandPaletteFilterModel;
 
-class CommandPalette : public QFrame
-{
+class CommandPalette : public QFrame {
     Q_OBJECT
 
-public:
+  public:
     enum FilterMode {
         NoFilter = 0x0,
         RemoveAccelerators = 0x1,
@@ -33,25 +32,25 @@ public:
     void setItemDelegate(QStyledItemDelegate *delegate);
     void setFilterModes(FilterModes modes);
 
-public slots:
+  public slots:
     void clearText();
     void selectPrev();
     void selectNext();
 
-protected:
+  protected:
     bool eventFilter(QObject *obj, QEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void hideEvent(QHideEvent *event) override;
 
-signals:
+  signals:
     void didChooseItem(const QModelIndex index, const QAbstractItemModel *model);
     void didSelectItem(const QModelIndex index, const QAbstractItemModel *model);
     void didHide();
 
-private slots:
+  private slots:
     void updateVisibility();
 
-private:
+  private:
     void handleKeyPress(QKeyEvent *event);
     void adjustPosition();
     void adjustSize();
@@ -62,11 +61,10 @@ private:
     QModelIndex rootIndex;
 };
 
-class ActionListModel : public QAbstractListModel
-{
+class ActionListModel : public QAbstractListModel {
     Q_OBJECT
 
-public:
+  public:
     enum Roles {
         IconRole = Qt::DecorationRole,
         TextRole = Qt::DisplayRole,
@@ -78,32 +76,33 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     virtual QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
-private:
+  private:
     QList<QAction *> m_actions;
 };
 
-class ActionDelegate : public QStyledItemDelegate
-{
+class ActionDelegate : public QStyledItemDelegate {
     Q_OBJECT
 
-public:
+  public:
     explicit ActionDelegate(QObject *parent = nullptr);
 
-    void paint(QPainter *painter,
-               const QStyleOptionViewItem &option,
+    void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
 };
 
 class CommandPaletteFilterModel : public QSortFilterProxyModel {
     Q_OBJECT
-public:
-  explicit CommandPaletteFilterModel(QObject *parent = nullptr);
-  void setFilterModes(CommandPalette::FilterModes modes) { m_modes = modes; invalidateFilter(); }
+  public:
+    explicit CommandPaletteFilterModel(QObject *parent = nullptr);
+    void setFilterModes(CommandPalette::FilterModes modes) {
+        m_modes = modes;
+        invalidateFilter();
+    }
 
-protected:
+  protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
 
-private:
+  private:
     CommandPalette::FilterModes m_modes = CommandPalette::NoFilter;
 
     bool fuzzyMatch(const QString &haystack, const QString &needle) const;

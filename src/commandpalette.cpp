@@ -18,9 +18,7 @@
 #include <CommandPaletteWidget/CommandPalette>
 #include <qnamespace.h>
 
-CommandPalette::CommandPalette(QWidget *parent)
-    : QFrame(parent)
-{
+CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
     setFrameShape(QFrame::StyledPanel);
     setLineWidth(2);
     setAutoFillBackground(true);
@@ -64,9 +62,7 @@ CommandPalette::CommandPalette(QWidget *parent)
         }
         hide();
     });
-    connect(listView->selectionModel(),
-            &QItemSelectionModel::selectionChanged,
-            this,
+    connect(listView->selectionModel(), &QItemSelectionModel::selectionChanged, this,
             [this](const QItemSelection &selected, const QItemSelection &) {
                 if (selected.indexes().size() == 0) {
                     return;
@@ -86,8 +82,7 @@ CommandPalette::CommandPalette(QWidget *parent)
     hide();
 }
 
-void CommandPalette::setDataModel(QAbstractItemModel *model)
-{
+void CommandPalette::setDataModel(QAbstractItemModel *model) {
     filterModel->setSourceModel(model);
     if (model) {
         rootIndex = model->index(0, 0);
@@ -95,32 +90,23 @@ void CommandPalette::setDataModel(QAbstractItemModel *model)
     }
 }
 
-void CommandPalette::setRootIndex(const QModelIndex &index)
-{
+void CommandPalette::setRootIndex(const QModelIndex &index) {
     rootIndex = index;
     if (index.isValid()) {
         listView->setRootIndex(filterModel->mapFromSource(rootIndex));
     }
 }
 
-void CommandPalette::setItemDelegate(QStyledItemDelegate *delegate)
-{
+void CommandPalette::setItemDelegate(QStyledItemDelegate *delegate) {
     listView->setItemDelegate(delegate);
 }
 
-void CommandPalette::setFilterModes(FilterModes modes)
-{
-    filterModel->setFilterModes(modes);
-}
+void CommandPalette::setFilterModes(FilterModes modes) { filterModel->setFilterModes(modes); }
 
-void CommandPalette::clearText()
-{
-    lineEdit->clear();
-}
+void CommandPalette::clearText() { lineEdit->clear(); }
 
-bool CommandPalette::eventFilter(QObject *obj, QEvent *event)
-{
-    if (!isVisible()){
+bool CommandPalette::eventFilter(QObject *obj, QEvent *event) {
+    if (!isVisible()) {
         return false;
     }
 
@@ -148,28 +134,24 @@ bool CommandPalette::eventFilter(QObject *obj, QEvent *event)
     return QFrame::eventFilter(obj, event);
 }
 
-void CommandPalette::showEvent(QShowEvent *event)
-{
+void CommandPalette::showEvent(QShowEvent *event) {
     QFrame::showEvent(event);
     adjustPosition();
     adjustSize();
 }
 
-void CommandPalette::hideEvent(QHideEvent *event)
-{
+void CommandPalette::hideEvent(QHideEvent *event) {
     QFrame::hideEvent(event);
     emit didHide();
 }
 
-void CommandPalette::updateVisibility()
-{
+void CommandPalette::updateVisibility() {
     bool hasVisibleRows = filterModel->rowCount() > 0;
     listView->setVisible(hasVisibleRows);
     adjustSize();
 }
 
-void CommandPalette::handleKeyPress(QKeyEvent *event)
-{
+void CommandPalette::handleKeyPress(QKeyEvent *event) {
     if (!listView->isVisible()) {
         return;
     }
@@ -186,8 +168,7 @@ void CommandPalette::handleKeyPress(QKeyEvent *event)
     }
 }
 
-void CommandPalette::selectNext()
-{
+void CommandPalette::selectNext() {
     auto currentIndex = listView->currentIndex();
     auto rowCount = filterModel->rowCount();
     if (!currentIndex.isValid()) {
@@ -209,8 +190,7 @@ void CommandPalette::selectNext()
     }
 }
 
-void CommandPalette::selectPrev()
-{
+void CommandPalette::selectPrev() {
     auto currentIndex = listView->currentIndex();
     auto rowCount = filterModel->rowCount();
     if (!currentIndex.isValid()) {
@@ -232,8 +212,7 @@ void CommandPalette::selectPrev()
     }
 }
 
-void CommandPalette::adjustPosition()
-{
+void CommandPalette::adjustPosition() {
     if (auto parentWidget = this->parentWidget()) {
         auto rect = parentWidget->rect();
         auto x = (rect.width() - width()) / 2;
@@ -244,15 +223,14 @@ void CommandPalette::adjustPosition()
     }
 }
 
-void CommandPalette::adjustSize()
-{
+void CommandPalette::adjustSize() {
     auto margins = layout()->contentsMargins();
     auto lineEditHeight = lineEdit->sizeHint().height();
     auto frameWidth = style()->pixelMetric(QStyle::PM_DefaultFrameWidth, nullptr, this);
     auto focusMargin = style()->pixelMetric(QStyle::PM_FocusFrameVMargin, nullptr, lineEdit);
     auto spacing = layout()->spacing();
-    auto lineEditTotalHeight =
-        lineEditHeight + margins.top() + margins.bottom() + 2 * (frameWidth + focusMargin) + spacing;
+    auto lineEditTotalHeight = lineEditHeight + margins.top() + margins.bottom() +
+                               2 * (frameWidth + focusMargin) + spacing;
     auto desiredWidth = 400;
 
     if (auto parentWidget = this->parentWidget()) {
@@ -269,23 +247,23 @@ void CommandPalette::adjustSize()
         auto visibleItems = std::min(rowCount, maxVisibleItems);
         auto rowsHeight = 0;
 
-        for (int i = 0; i < visibleItems; ++i)
+        for (int i = 0; i < visibleItems; ++i) {
             rowsHeight += listView->sizeHintForRow(i);
+        }
 
         rowsHeight += listView->contentsMargins().top() + listView->contentsMargins().bottom();
         rowsHeight += 2 * listView->frameWidth();
         auto totalHeight = lineEditTotalHeight + rowsHeight;
         setFixedHeight(totalHeight);
 
-        listView->setVerticalScrollBarPolicy(
-            rowCount > maxVisibleItems ? Qt::ScrollBarAsNeeded : Qt::ScrollBarAlwaysOff);
+        listView->setVerticalScrollBarPolicy(rowCount > maxVisibleItems ? Qt::ScrollBarAsNeeded
+                                                                        : Qt::ScrollBarAlwaysOff);
     } else {
         setFixedHeight(lineEditTotalHeight);
     }
 }
 
-static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> void
-{
+static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> void {
     if (!menu) {
         return;
     }
@@ -304,20 +282,19 @@ static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> vo
     }
 }
 
-QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
-{
-    auto addActions = [](auto &originalActions, auto const  &newActions) {
+QList<QAction *> collectWidgetActions(QMainWindow *mainWindow) {
+    auto addActions = [](auto &originalActions, auto const &newActions) {
         for (auto &action : newActions) {
             if (action->text().isEmpty()) {
                 continue;
             }
             if (originalActions.contains(action)) {
-              continue;
+                continue;
             }
             originalActions += action;
         }
     };
-    
+
     QList<QAction *> allActions;
     for (auto &toolbar : mainWindow->findChildren<QToolBar *>()) {
         addActions(allActions, toolbar->actions());
@@ -331,34 +308,29 @@ QList<QAction *> collectWidgetActions(QMainWindow *mainWindow)
             collectActionsFromMenu(allActions, action->menu());
         }
     }
-    
+
     auto focused = mainWindow->focusWidget();
     if (focused) {
-      addActions(allActions, focused->findChildren<QAction *>());
+        addActions(allActions, focused->findChildren<QAction *>());
     }
     addActions(allActions, mainWindow->actions());
     return allActions;
 }
 
-ActionListModel::ActionListModel(QObject *parent)
-    : QAbstractListModel(parent)
-{}
+ActionListModel::ActionListModel(QObject *parent) : QAbstractListModel(parent) {}
 
-void ActionListModel::setActions(const QList<QAction *> &actions)
-{
+void ActionListModel::setActions(const QList<QAction *> &actions) {
     beginResetModel();
     m_actions = actions;
     endResetModel();
 }
 
-int ActionListModel::rowCount(const QModelIndex &parent) const
-{
+int ActionListModel::rowCount(const QModelIndex &parent) const {
     Q_UNUSED(parent);
     return m_actions.size();
 }
 
-QVariant ActionListModel::data(const QModelIndex &index, int role) const
-{
+QVariant ActionListModel::data(const QModelIndex &index, int role) const {
     if (!index.isValid() || index.row() >= m_actions.size()) {
         return {};
     }
@@ -386,14 +358,10 @@ QVariant ActionListModel::data(const QModelIndex &index, int role) const
     }
 }
 
-ActionDelegate::ActionDelegate(QObject *parent)
-    : QStyledItemDelegate(parent)
-{}
+ActionDelegate::ActionDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
 
-void ActionDelegate::paint(QPainter *painter,
-                           const QStyleOptionViewItem &option,
-                           const QModelIndex &index) const
-{
+void ActionDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
+                           const QModelIndex &index) const {
     painter->save();
     if (option.state & QStyle::State_Selected) {
         painter->fillRect(option.rect, option.palette.highlight());
@@ -402,15 +370,19 @@ void ActionDelegate::paint(QPainter *painter,
         painter->setPen(option.palette.text().color());
     }
 
-    auto iconSize = option.widget->style()->pixelMetric(QStyle::PM_ListViewIconSize, &option, option.widget);
-    auto margin = option.widget->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, option.widget);
+    auto iconSize =
+        option.widget->style()->pixelMetric(QStyle::PM_ListViewIconSize, &option, option.widget);
+    auto margin =
+        option.widget->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, option.widget);
     auto icon = index.data(ActionListModel::IconRole).value<QIcon>();
     auto text = index.data(ActionListModel::TextRole).toString();
     auto shortcut = index.data(ActionListModel::ShortcutRole).toString();
     auto rect = option.rect;
     auto padding = iconSize + 2 * margin;
-    auto iconRect = QRect(rect.left() + margin, rect.top() + (rect.height() - iconSize) / 2, iconSize, iconSize);
-    auto textRect = QRect(rect.left() + padding, rect.top(), rect.width() - padding - margin, rect.height());
+    auto iconRect = QRect(rect.left() + margin, rect.top() + (rect.height() - iconSize) / 2,
+                          iconSize, iconSize);
+    auto textRect =
+        QRect(rect.left() + padding, rect.top(), rect.width() - padding - margin, rect.height());
 
     icon.paint(painter, iconRect, Qt::AlignCenter);
     painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, text);
@@ -419,18 +391,15 @@ void ActionDelegate::paint(QPainter *painter,
 }
 
 CommandPaletteFilterModel::CommandPaletteFilterModel(QObject *parent)
-    : QSortFilterProxyModel(parent)
-{
-}
+    : QSortFilterProxyModel(parent) {}
 
 bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
-                                                 const QModelIndex &sourceParent) const
-{
+                                                 const QModelIndex &sourceParent) const {
     auto index = sourceModel()->index(sourceRow, 0, sourceParent);
     auto text = index.data(ActionListModel::TextRole).toString();
     auto pattern = filterRegularExpression().pattern();
-    if (auto commandPalette = qobject_cast<const CommandPalette*>(parent())) {
-        if (auto lineEdit = commandPalette->findChild<QLineEdit*>()) {
+    if (auto commandPalette = qobject_cast<const CommandPalette *>(parent())) {
+        if (auto lineEdit = commandPalette->findChild<QLineEdit *>()) {
             pattern = lineEdit->text();
         }
     }
@@ -454,13 +423,10 @@ bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
     return text.contains(filterRegularExpression());
 }
 
-bool CommandPaletteFilterModel::fuzzyMatch(const QString &haystack, const QString &needle) const
-{
+bool CommandPaletteFilterModel::fuzzyMatch(const QString &haystack, const QString &needle) const {
     return Fuzzy::levenshteinDistance(needle, haystack) < 3;
 }
 
-
-bool CommandPaletteFilterModel::fileMatch(const QString &haystack, const QString &needle) const
-{
-    return Fuzzy::scoreSimple(needle, haystack)  > 5;
+bool CommandPaletteFilterModel::fileMatch(const QString &haystack, const QString &needle) const {
+    return Fuzzy::scoreSimple(needle, haystack) > 5;
 }

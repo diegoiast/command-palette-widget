@@ -3,19 +3,21 @@
 
 namespace Fuzzy {
 
-inline auto isWordBoundary(QChar prev, QChar curr) -> bool
-{
-    if (prev.isNull()) return true;
-    if (prev == '/' || prev == '\\'  || prev == '_' || prev == '-' || prev == '.' || prev.isSpace())
+inline auto isWordBoundary(QChar prev, QChar curr) -> bool {
+    if (prev.isNull()) {
         return true;
-    if (prev.isLower() && curr.isUpper())
+    }
+    if (prev == '/' || prev == '\\' || prev == '_' || prev == '-' || prev == '.' ||
+        prev.isSpace()) {
         return true;
+    }
+    if (prev.isLower() && curr.isUpper()) {
+        return true;
+    }
     return false;
 }
 
-
-auto levenshteinDistance(const QStringView s1, const QStringView s2) -> int
-{
+auto levenshteinDistance(const QStringView s1, const QStringView s2) -> int {
     auto len1 = s1.length();
     auto len2 = s2.length();
     QVector<int> col(len2 + 1);
@@ -25,7 +27,7 @@ auto levenshteinDistance(const QStringView s1, const QStringView s2) -> int
         prevCol[i] = i;
     }
 
-    for (auto  i = 0; i < len1; i++) {
+    for (auto i = 0; i < len1; i++) {
         col[0] = i + 1;
         for (auto j = 0; j < len2; j++) {
             auto cost = (s1.at(i).toLower() == s2.at(j).toLower()) ? 0 : 1;
@@ -36,15 +38,13 @@ auto levenshteinDistance(const QStringView s1, const QStringView s2) -> int
     return prevCol[len2];
 }
 
-
-auto score(const QStringView query, const QStringView target) -> MatchResult
-{
+auto score(const QStringView query, const QStringView target) -> MatchResult {
     if (target.isEmpty()) {
         return {0.0, {}};
     }
 
     if (query.isEmpty()) {
-        return {100.0, {}}; 
+        return {100.0, {}};
     }
 
     auto score = 0.0;
@@ -61,19 +61,23 @@ auto score(const QStringView query, const QStringView target) -> MatchResult
         if (qc == tc) {
             auto charScore = BASE_SCORE;
 
-            if (query[qi] == target[ti])
+            if (query[qi] == target[ti]) {
                 charScore += CASE_BONUS;
+            }
 
-            if (ti == 0 && qi == 0)
+            if (ti == 0 && qi == 0) {
                 charScore += START_BONUS;
+            }
 
-            if (isWordBoundary(ti > 0 ? target[ti - 1] : QChar(), target[ti]))
+            if (isWordBoundary(ti > 0 ? target[ti - 1] : QChar(), target[ti])) {
                 charScore += WORD_BONUS;
+            }
 
-            if (!indices.isEmpty() && ti == indices.last() + 1)
+            if (!indices.isEmpty() && ti == indices.last() + 1) {
                 consecutive++;
-            else
+            } else {
                 consecutive = 0;
+            }
 
             charScore += consecutive * CONSEC_BONUS;
             score += charScore;
@@ -83,8 +87,9 @@ auto score(const QStringView query, const QStringView target) -> MatchResult
         ti++;
     }
 
-    if (qi < query.size())
+    if (qi < query.size()) {
         return {0.0, {}};
+    }
 
     for (auto i = 1; i < indices.size(); ++i) {
         int gap = indices[i] - indices[i - 1] - 1;
