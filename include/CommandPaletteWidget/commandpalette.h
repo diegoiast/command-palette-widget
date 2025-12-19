@@ -95,8 +95,9 @@ class CommandPaletteFilterModel : public QSortFilterProxyModel {
   public:
     explicit CommandPaletteFilterModel(QObject *parent = nullptr);
     void setFilterModes(CommandPalette::FilterModes modes) {
+        beginResetModel();
         m_modes = modes;
-        invalidateFilter();
+        endResetModel();
     }
 
   protected:
