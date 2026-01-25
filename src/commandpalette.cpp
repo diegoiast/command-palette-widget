@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: MIT
-
+   
+   
+   
 #include "CommandPaletteWidget/commandpalette.h"
 #include <QApplication>
 #include <QEvent>
@@ -9,6 +11,7 @@
 #include <QMainWindow>
 #include <QMenuBar>
 #include <QPainter>
+#include <QScrollBar>
 #include <QSortFilterProxyModel>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -173,8 +176,8 @@ void CommandPalette::selectNext() {
     auto rowCount = filterModel->rowCount();
     if (!currentIndex.isValid()) {
         if (rowCount > 0) {
-            auto sourceRootIndex = filterModel->mapToSource(rootIndex);
-            listView->setCurrentIndex(filterModel->mapFromSource(sourceRootIndex));
+            auto firstIndex = filterModel->index(0, 0);
+            listView->setCurrentIndex(firstIndex);
         }
         return;
     }
@@ -226,7 +229,7 @@ void CommandPalette::adjustPosition() {
 void CommandPalette::adjustSize() {
     auto margins = layout()->contentsMargins();
     auto lineEditHeight = lineEdit->sizeHint().height();
-    auto frameWidth = style()->pixelMetric(QStyle::PM_DefaultFrameWidth, nullptr, this);
+    auto frameWidth = this->frameWidth();
     auto focusMargin = style()->pixelMetric(QStyle::PM_FocusFrameVMargin, nullptr, lineEdit);
     auto spacing = layout()->spacing();
     auto lineEditTotalHeight = lineEditHeight + margins.top() + margins.bottom() +
@@ -247,8 +250,31 @@ void CommandPalette::adjustSize() {
         auto visibleItems = std::min(rowCount, maxVisibleItems);
         auto rowsHeight = 0;
 
+        auto availableWidth =
+            width() - margins.left() - margins.right() - 2 * frameWidth -
+            2 * listView->frameWidth() - listView->contentsMargins().left() -
+            listView->contentsMargins().right();
+
+        if (rowCount > maxVisibleItems) {
+            availableWidth -= style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, listView);
+        }
+
+        bool hScrollNeeded = false;
+        QStyleOptionViewItem option;
+        option.initFrom(listView);
+
         for (int i = 0; i < visibleItems; ++i) {
             rowsHeight += listView->sizeHintForRow(i);
+            if (!hScrollNeeded) {
+                if (listView->itemDelegate()->sizeHint(option, filterModel->index(i, 0)).width() >
+                    availableWidth) {
+                    hScrollNeeded = true;
+                }
+            }
+        }
+
+        if (hScrollNeeded) {
+            rowsHeight += listView->horizontalScrollBar()->sizeHint().height();
         }
 
         rowsHeight += listView->contentsMargins().top() + listView->contentsMargins().bottom();
