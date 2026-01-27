@@ -42,11 +42,16 @@ CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
     listView->setModel(filterModel);
     listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-    connect(lineEdit, &QLineEdit::textChanged, lineEdit, [this](const QString &text) {
+    connect(lineEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
         filterModel->setFilterFixedString(text);
-        if (text.isEmpty()) {
-            listView->setCurrentIndex(filterModel->mapFromSource(rootIndex));
-            listView->setRootIndex(filterModel->mapFromSource(rootIndex));
+        auto root = filterModel->mapFromSource(rootIndex);
+        listView->setRootIndex(root);
+
+        if (filterModel->rowCount(root) > 0) {
+            auto firstIndex = filterModel->index(0, 0, root);
+            listView->setCurrentIndex(firstIndex);
+        } else {
+            listView->setCurrentIndex(QModelIndex());
         }
         updateVisibility();
     });
@@ -87,10 +92,7 @@ CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
 
 void CommandPalette::setDataModel(QAbstractItemModel *model) {
     filterModel->setSourceModel(model);
-    if (model) {
-        rootIndex = model->index(0, 0);
-        rootIndex = filterModel->mapFromSource(rootIndex);
-    }
+    rootIndex = QModelIndex();
 }
 
 void CommandPalette::setRootIndex(const QModelIndex &index) {
@@ -149,7 +151,7 @@ void CommandPalette::hideEvent(QHideEvent *event) {
 }
 
 void CommandPalette::updateVisibility() {
-    bool hasVisibleRows = filterModel->rowCount() > 0;
+    bool hasVisibleRows = filterModel->rowCount(listView->rootIndex()) > 0;
     listView->setVisible(hasVisibleRows);
     adjustSize();
 }
@@ -172,12 +174,14 @@ void CommandPalette::handleKeyPress(QKeyEvent *event) {
 }
 
 void CommandPalette::selectNext() {
+    auto root = listView->rootIndex();
     auto currentIndex = listView->currentIndex();
-    auto rowCount = filterModel->rowCount();
+    auto rowCount = filterModel->rowCount(root);
     if (!currentIndex.isValid()) {
         if (rowCount > 0) {
-            auto firstIndex = filterModel->index(0, 0);
+            auto firstIndex = filterModel->index(0, 0, root);
             listView->setCurrentIndex(firstIndex);
+            listView->scrollTo(firstIndex);
         }
         return;
     }
@@ -185,21 +189,25 @@ void CommandPalette::selectNext() {
     auto currentRow = currentIndex.row();
     auto rowBelow = currentRow + 1;
     if (rowBelow < rowCount) {
-        auto indexBelow = filterModel->index(rowBelow, currentIndex.column());
+        auto indexBelow = filterModel->index(rowBelow, currentIndex.column(), root);
         listView->setCurrentIndex(indexBelow);
+        listView->scrollTo(indexBelow);
     } else if (rowCount > 0) {
-        auto firstIndex = filterModel->index(0, 0);
+        auto firstIndex = filterModel->index(0, 0, root);
         listView->setCurrentIndex(firstIndex);
+        listView->scrollTo(firstIndex);
     }
 }
 
 void CommandPalette::selectPrev() {
+    auto root = listView->rootIndex();
     auto currentIndex = listView->currentIndex();
-    auto rowCount = filterModel->rowCount();
+    auto rowCount = filterModel->rowCount(root);
     if (!currentIndex.isValid()) {
         if (rowCount > 0) {
-            auto lastIndex = filterModel->index(rowCount - 1, 0);
+            auto lastIndex = filterModel->index(rowCount - 1, 0, root);
             listView->setCurrentIndex(lastIndex);
+            listView->scrollTo(lastIndex);
         }
         return;
     }
@@ -207,11 +215,13 @@ void CommandPalette::selectPrev() {
     auto currentRow = currentIndex.row();
     auto rowAbove = currentRow - 1;
     if (rowAbove >= 0) {
-        auto indexAbove = filterModel->index(rowAbove, currentIndex.column());
+        auto indexAbove = filterModel->index(rowAbove, currentIndex.column(), root);
         listView->setCurrentIndex(indexAbove);
+        listView->scrollTo(indexAbove);
     } else if (rowCount > 0) {
-        auto lastIndex = filterModel->index(rowCount - 1, 0);
+        auto lastIndex = filterModel->index(rowCount - 1, 0, root);
         listView->setCurrentIndex(lastIndex);
+        listView->scrollTo(lastIndex);
     }
 }
 
@@ -246,7 +256,7 @@ void CommandPalette::adjustSize() {
 
     if (listView->isVisible()) {
         auto maxVisibleItems = 10;
-        auto rowCount = filterModel->rowCount();
+        auto rowCount = filterModel->rowCount(listView->rootIndex());
         auto visibleItems = std::min(rowCount, maxVisibleItems);
         auto rowsHeight = 0;
 
@@ -266,7 +276,7 @@ void CommandPalette::adjustSize() {
         for (int i = 0; i < visibleItems; ++i) {
             rowsHeight += listView->sizeHintForRow(i);
             if (!hScrollNeeded) {
-                if (listView->itemDelegate()->sizeHint(option, filterModel->index(i, 0)).width() >
+                if (listView->itemDelegate()->sizeHint(option, filterModel->index(i, 0, listView->rootIndex())).width() >
                     availableWidth) {
                     hScrollNeeded = true;
                 }
@@ -352,7 +362,9 @@ void ActionListModel::setActions(const QList<QAction *> &actions) {
 }
 
 int ActionListModel::rowCount(const QModelIndex &parent) const {
-    Q_UNUSED(parent);
+    if (parent.isValid()) {
+        return 0;
+    }
     return m_actions.size();
 }
 
@@ -417,7 +429,9 @@ void ActionDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option
 }
 
 CommandPaletteFilterModel::CommandPaletteFilterModel(QObject *parent)
-    : QSortFilterProxyModel(parent) {}
+    : QSortFilterProxyModel(parent) {
+    setRecursiveFilteringEnabled(true);
+}
 
 bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
                                                  const QModelIndex &sourceParent) const {
