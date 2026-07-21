@@ -8,7 +8,7 @@ in modern applications (SublimeText, VSCode etc).
 Features:
 
 * You can feed it any `QAbstractItemModel` (tree based models are still WIP).
-* When the user chosess an item - a singal is emited.
+* When the user chooses an item - a singal is emited.
 * Special filters (fuzzy search, remove accelerators, file search)
 * If your list contains list of files, you can set the filter
   to file based (searches for part of filenames/dirs etc).

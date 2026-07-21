@@ -88,7 +88,7 @@ public:
                 commandPalette->hide();
             } else {
                 commandPalette->setDataModel(model2);
-                commandPalette->setFilterModes(CommandPalette::FuzzyMatch);
+                commandPalette->setFilterModes(CommandPalette::NoFilter);
                 commandPalette->clearText();
                 commandPalette->show();
             }

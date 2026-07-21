@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-   
-   
-   
+
 #include "CommandPaletteWidget/commandpalette.h"
 #include <QApplication>
 #include <QEvent>
+#include <QGraphicsDropShadowEffect>
 #include <QKeyEvent>
 #include <QLineEdit>
 #include <QListView>
@@ -13,6 +12,7 @@
 #include <QPainter>
 #include <QScrollBar>
 #include <QSortFilterProxyModel>
+#include <QTimer>
 #include <QToolBar>
 #include <QVBoxLayout>
 
@@ -21,54 +21,148 @@
 #include <CommandPaletteWidget/CommandPalette>
 #include <qnamespace.h>
 
+namespace {
+
+auto shadowColorForPalette(const QPalette &palette) -> QColor {
+    auto window = palette.color(QPalette::Window);
+    auto luminance = 0.299 * window.redF() + 0.587 * window.greenF() + 0.114 * window.blueF();
+    return luminance < 0.5 ? QColor(255, 255, 255, 140) : QColor(0, 0, 0, 180);
+}
+
+} // namespace
+
 CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
     setFrameShape(QFrame::StyledPanel);
-    setLineWidth(2);
-    setAutoFillBackground(true);
+    setStyleSheet(QString(R"(
+        CommandPalette {
+            background-color: palette(base);
+            border: 1px solid palette(mid);
+        }
+    )"));
+
+    auto shadow = new QGraphicsDropShadowEffect(this);
+    shadow->setBlurRadius(48);
+    shadow->setOffset(0, 8);
+    shadow->setColor(shadowColorForPalette(palette()));
+    setGraphicsEffect(shadow);
+    shadowEffect = shadow;
 
     auto layout = new QVBoxLayout(this);
-    layout->setContentsMargins(5, 5, 5, 5);
+    layout->setContentsMargins(6, 6, 6, 6);
+    layout->setSpacing(4);
 
     lineEdit = new QLineEdit(this);
     lineEdit->setPlaceholderText(tr("Type something here..."));
+    lineEdit->setClearButtonEnabled(true);
     lineEdit->installEventFilter(this);
+    lineEdit->setStyleSheet(QStringLiteral(R"(
+        QLineEdit {
+            padding: 5px 6px;
+            border: none;
+            border-bottom: 2px solid palette(highlight);
+            background: transparent;
+        }
+    )"));
 
     listView = new QListView(this);
     listView->setAlternatingRowColors(true);
+    listView->setStyleSheet(QString(R"(
+        QListView {
+            border: none;
+            background: transparent;
+            outline: none;
+        }
+        QScrollBar:vertical {
+            width: 8px;
+            background: transparent;
+            margin: 4px 2px 4px 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: palette(mid);
+            min-height: 24px;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+            background: none;
+            border: none;
+        }
+        QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+            background: transparent;
+        }
+        QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+            width: 0px;
+            height: 0px;
+            background: none;
+            border: none;
+        }
+        QScrollBar:horizontal {
+            height: 8px;
+            background: transparent;
+            margin: 0px 4px 2px 4px;
+        }
+        QScrollBar::handle:horizontal {
+            background: palette(mid);
+            min-width: 24px;
+        }
+        QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+            width: 0px;
+            background: none;
+            border: none;
+        }
+        QScrollBar::add-page:horizontal, QScrollBar::sub-page:horizontal {
+            background: transparent;
+        }
+        QScrollBar::left-arrow:horizontal, QScrollBar::right-arrow:horizontal {
+            width: 0px;
+            height: 0px;
+            background: none;
+            border: none;
+        }
+    )"));
 
     filterModel = new CommandPaletteFilterModel(this);
     filterModel->setSortCaseSensitivity(Qt::CaseInsensitive);
     filterModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    filterModel->sort(0);
     listView->setModel(filterModel);
     listView->setEditTriggers(QAbstractItemView::NoEditTriggers);
 
-    connect(lineEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
-        filterModel->setFilterFixedString(text);
-        auto root = filterModel->mapFromSource(rootIndex);
-        listView->setRootIndex(root);
+    connect(filterModel, &QAbstractItemModel::rowsInserted, this, &CommandPalette::updateVisibility);
+    connect(filterModel, &QAbstractItemModel::modelReset, this, &CommandPalette::updateVisibility);
 
-        if (filterModel->rowCount(root) > 0) {
-            auto firstIndex = filterModel->index(0, 0, root);
-            listView->setCurrentIndex(firstIndex);
+    filterDebounceTimer = new QTimer(this);
+    filterDebounceTimer->setSingleShot(true);
+    filterDebounceTimer->setInterval(300);
+    connect(filterDebounceTimer, &QTimer::timeout, this, &CommandPalette::updateFilter);
+
+    connect(lineEdit, &QLineEdit::textChanged, this, [this](const QString &text) {
+        if (text.isEmpty()) {
+            filterDebounceTimer->stop();
+            updateFilter();
         } else {
-            listView->setCurrentIndex(QModelIndex());
+            filterDebounceTimer->start();
         }
-        updateVisibility();
     });
     connect(lineEdit, &QLineEdit::returnPressed, this, [this]() {
         auto selected = listView->currentIndex();
         if (selected.isValid()) {
             selected = filterModel->mapToSource(selected);
-            emit didChooseItem(selected, filterModel->sourceModel());
+            auto *sourceModel = filterModel->sourceModel();
+            hide();
+            emit didChooseItem(selected, sourceModel);
+        } else {
+            hide();
         }
-        hide();
     });
     connect(listView, &QAbstractItemView::activated, this, [this](QModelIndex index) {
         if (index.isValid()) {
             index = filterModel->mapToSource(index);
-            emit didChooseItem(index, filterModel->sourceModel());
+            auto *sourceModel = filterModel->sourceModel();
+            hide();
+            emit didChooseItem(index, sourceModel);
+        } else {
+            hide();
         }
-        hide();
     });
     connect(listView->selectionModel(), &QItemSelectionModel::selectionChanged, this,
             [this](const QItemSelection &selected, const QItemSelection &) {
@@ -116,8 +210,8 @@ bool CommandPalette::eventFilter(QObject *obj, QEvent *event) {
     }
 
     if (obj == parentWidget() && event->type() == QEvent::Resize) {
-        adjustPosition();
         adjustSize();
+        adjustPosition();
         return true;
     }
 
@@ -141,8 +235,8 @@ bool CommandPalette::eventFilter(QObject *obj, QEvent *event) {
 
 void CommandPalette::showEvent(QShowEvent *event) {
     QFrame::showEvent(event);
-    adjustPosition();
     adjustSize();
+    adjustPosition();
 }
 
 void CommandPalette::hideEvent(QHideEvent *event) {
@@ -150,10 +244,32 @@ void CommandPalette::hideEvent(QHideEvent *event) {
     emit didHide();
 }
 
+void CommandPalette::changeEvent(QEvent *event) {
+    QFrame::changeEvent(event);
+    if (event->type() == QEvent::PaletteChange) {
+        shadowEffect->setColor(shadowColorForPalette(palette()));
+    }
+}
+
 void CommandPalette::updateVisibility() {
-    bool hasVisibleRows = filterModel->rowCount(listView->rootIndex()) > 0;
+    auto hasVisibleRows = filterModel->rowCount(listView->rootIndex()) > 0;
     listView->setVisible(hasVisibleRows);
     adjustSize();
+}
+
+void CommandPalette::updateFilter() {
+    filterModel->setFilterFixedString(lineEdit->text());
+    filterModel->refreshSorting();
+    auto root = filterModel->mapFromSource(rootIndex);
+    listView->setRootIndex(root);
+
+    if (filterModel->rowCount(root) > 0) {
+        auto firstIndex = filterModel->index(0, 0, root);
+        listView->setCurrentIndex(firstIndex);
+    } else {
+        listView->setCurrentIndex(QModelIndex());
+    }
+    updateVisibility();
 }
 
 void CommandPalette::handleKeyPress(QKeyEvent *event) {
@@ -177,17 +293,20 @@ void CommandPalette::selectNext() {
     auto root = listView->rootIndex();
     auto currentIndex = listView->currentIndex();
     auto rowCount = filterModel->rowCount(root);
+
     if (!currentIndex.isValid()) {
         if (rowCount > 0) {
             auto firstIndex = filterModel->index(0, 0, root);
             listView->setCurrentIndex(firstIndex);
             listView->scrollTo(firstIndex);
+            update();
         }
         return;
     }
 
     auto currentRow = currentIndex.row();
     auto rowBelow = currentRow + 1;
+
     if (rowBelow < rowCount) {
         auto indexBelow = filterModel->index(rowBelow, currentIndex.column(), root);
         listView->setCurrentIndex(indexBelow);
@@ -197,23 +316,27 @@ void CommandPalette::selectNext() {
         listView->setCurrentIndex(firstIndex);
         listView->scrollTo(firstIndex);
     }
+    update();
 }
 
 void CommandPalette::selectPrev() {
     auto root = listView->rootIndex();
     auto currentIndex = listView->currentIndex();
     auto rowCount = filterModel->rowCount(root);
+
     if (!currentIndex.isValid()) {
         if (rowCount > 0) {
             auto lastIndex = filterModel->index(rowCount - 1, 0, root);
             listView->setCurrentIndex(lastIndex);
             listView->scrollTo(lastIndex);
+            update();
         }
         return;
     }
 
     auto currentRow = currentIndex.row();
     auto rowAbove = currentRow - 1;
+
     if (rowAbove >= 0) {
         auto indexAbove = filterModel->index(rowAbove, currentIndex.column(), root);
         listView->setCurrentIndex(indexAbove);
@@ -223,6 +346,7 @@ void CommandPalette::selectPrev() {
         listView->setCurrentIndex(lastIndex);
         listView->scrollTo(lastIndex);
     }
+    update();
 }
 
 void CommandPalette::adjustPosition() {
@@ -230,6 +354,7 @@ void CommandPalette::adjustPosition() {
         auto rect = parentWidget->rect();
         auto x = (rect.width() - width()) / 2;
         auto y = 50;
+
         move(x, y);
         lineEdit->setFocus();
         raise();
@@ -259,25 +384,24 @@ void CommandPalette::adjustSize() {
         auto rowCount = filterModel->rowCount(listView->rootIndex());
         auto visibleItems = std::min(rowCount, maxVisibleItems);
         auto rowsHeight = 0;
+        auto hScrollNeeded = false;
+        QStyleOptionViewItem option;
 
-        auto availableWidth =
-            width() - margins.left() - margins.right() - 2 * frameWidth -
-            2 * listView->frameWidth() - listView->contentsMargins().left() -
-            listView->contentsMargins().right();
+        auto availableWidth = width() - margins.left() - margins.right() - 2 * frameWidth -
+                              2 * listView->frameWidth() - listView->contentsMargins().left() -
+                              listView->contentsMargins().right();
 
         if (rowCount > maxVisibleItems) {
             availableWidth -= style()->pixelMetric(QStyle::PM_ScrollBarExtent, nullptr, listView);
         }
 
-        bool hScrollNeeded = false;
-        QStyleOptionViewItem option;
         option.initFrom(listView);
-
-        for (int i = 0; i < visibleItems; ++i) {
+        for (auto i = 0; i < visibleItems; ++i) {
             rowsHeight += listView->sizeHintForRow(i);
             if (!hScrollNeeded) {
-                if (listView->itemDelegate()->sizeHint(option, filterModel->index(i, 0, listView->rootIndex())).width() >
-                    availableWidth) {
+                if (listView->itemDelegate()
+                        ->sizeHint(option, filterModel->index(i, 0, listView->rootIndex()))
+                        .width() > availableWidth) {
                     hScrollNeeded = true;
                 }
             }
@@ -318,7 +442,7 @@ static auto collectActionsFromMenu(QList<QAction *> &actions, QMenu *menu) -> vo
     }
 }
 
-QList<QAction *> collectWidgetActions(QMainWindow *mainWindow) {
+auto collectWidgetActions(QMainWindow *mainWindow) -> QList<QAction *> {
     auto addActions = [](auto &originalActions, auto const &newActions) {
         for (auto &action : newActions) {
             if (action->text().isEmpty()) {
@@ -401,9 +525,13 @@ ActionDelegate::ActionDelegate(QObject *parent) : QStyledItemDelegate(parent) {}
 void ActionDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option,
                            const QModelIndex &index) const {
     painter->save();
-    if (option.state & QStyle::State_Selected) {
-        painter->fillRect(option.rect, option.palette.highlight());
-        painter->setPen(option.palette.highlightedText().color());
+
+    auto rect = option.rect;
+    auto selected = option.state & QStyle::State_Selected;
+
+    if (selected) {
+        painter->fillRect(rect, option.palette.color(QPalette::Highlight));
+        painter->setPen(option.palette.color(QPalette::HighlightedText));
     } else {
         painter->setPen(option.palette.text().color());
     }
@@ -411,21 +539,38 @@ void ActionDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option
     auto iconSize =
         option.widget->style()->pixelMetric(QStyle::PM_ListViewIconSize, &option, option.widget);
     auto margin =
-        option.widget->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, option.widget);
+        option.widget->style()->pixelMetric(QStyle::PM_FocusFrameHMargin, &option, option.widget) +
+        4;
     auto icon = index.data(ActionListModel::IconRole).value<QIcon>();
     auto text = index.data(ActionListModel::TextRole).toString();
     auto shortcut = index.data(ActionListModel::ShortcutRole).toString();
-    auto rect = option.rect;
     auto padding = iconSize + 2 * margin;
     auto iconRect = QRect(rect.left() + margin, rect.top() + (rect.height() - iconSize) / 2,
                           iconSize, iconSize);
     auto textRect =
         QRect(rect.left() + padding, rect.top(), rect.width() - padding - margin, rect.height());
 
+    auto shortcutFont = painter->font();
+    auto shortcutColor =
+        option.palette.color(selected ? QPalette::Normal : QPalette::Disabled,
+                             selected ? QPalette::HighlightedText : QPalette::Text);
+
+    if (selected) {
+        shortcutColor.setAlpha(190);
+    }
     icon.paint(painter, iconRect, Qt::AlignCenter);
     painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter | Qt::TextShowMnemonic, text);
+    painter->setPen(shortcutColor);
+    shortcutFont.setPointSizeF(shortcutFont.pointSizeF() - 1);
+    painter->setFont(shortcutFont);
     painter->drawText(textRect, Qt::AlignRight | Qt::AlignVCenter, shortcut);
     painter->restore();
+}
+
+QSize ActionDelegate::sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const {
+    auto size = QStyledItemDelegate::sizeHint(option, index);
+    size.setHeight(size.height() + 4);
+    return size;
 }
 
 CommandPaletteFilterModel::CommandPaletteFilterModel(QObject *parent)
@@ -433,16 +578,21 @@ CommandPaletteFilterModel::CommandPaletteFilterModel(QObject *parent)
     setRecursiveFilteringEnabled(true);
 }
 
-bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
-                                                 const QModelIndex &sourceParent) const {
-    auto index = sourceModel()->index(sourceRow, 0, sourceParent);
-    auto text = index.data(ActionListModel::TextRole).toString();
+QString CommandPaletteFilterModel::currentPattern() const {
     auto pattern = filterRegularExpression().pattern();
     if (auto commandPalette = qobject_cast<const CommandPalette *>(parent())) {
         if (auto lineEdit = commandPalette->findChild<QLineEdit *>()) {
             pattern = lineEdit->text();
         }
     }
+    return pattern;
+}
+
+bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
+                                                 const QModelIndex &sourceParent) const {
+    auto index = sourceModel()->index(sourceRow, 0, sourceParent);
+    auto text = index.data(ActionListModel::TextRole).toString();
+    auto pattern = currentPattern();
 
     if (pattern.isEmpty()) {
         return true;
@@ -461,6 +611,29 @@ bool CommandPaletteFilterModel::filterAcceptsRow(int sourceRow,
     }
 
     return text.contains(filterRegularExpression());
+}
+
+bool CommandPaletteFilterModel::lessThan(const QModelIndex &left, const QModelIndex &right) const {
+    if (m_modes.testFlag(CommandPalette::FileMatch) ||
+        m_modes.testFlag(CommandPalette::FuzzyMatch)) {
+        auto pattern = currentPattern();
+        if (!pattern.isEmpty()) {
+            auto leftText = left.data(ActionListModel::TextRole).toString();
+            auto rightText = right.data(ActionListModel::TextRole).toString();
+            if (m_modes.testFlag(CommandPalette::RemoveAccelerators)) {
+                leftText.remove('&');
+                rightText.remove('&');
+            }
+
+            auto leftScore = Fuzzy::scoreSimple(pattern, leftText);
+            auto rightScore = Fuzzy::scoreSimple(pattern, rightText);
+            if (!qFuzzyCompare(leftScore, rightScore)) {
+                return leftScore > rightScore;
+            }
+        }
+    }
+
+    return QSortFilterProxyModel::lessThan(left, right);
 }
 
 bool CommandPaletteFilterModel::fuzzyMatch(const QString &haystack, const QString &needle) const {

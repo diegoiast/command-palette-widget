@@ -12,6 +12,8 @@
 class QLineEdit;
 class QListView;
 class QMainWindow;
+class QTimer;
+class QGraphicsDropShadowEffect;
 class CommandPaletteFilterModel;
 
 class CommandPalette : public QFrame {
@@ -41,6 +43,7 @@ class CommandPalette : public QFrame {
     bool eventFilter(QObject *obj, QEvent *event) override;
     void showEvent(QShowEvent *event) override;
     void hideEvent(QHideEvent *event) override;
+    void changeEvent(QEvent *event) override;
 
   signals:
     void didChooseItem(const QModelIndex index, const QAbstractItemModel *model);
@@ -54,10 +57,13 @@ class CommandPalette : public QFrame {
     void handleKeyPress(QKeyEvent *event);
     void adjustPosition();
     void adjustSize();
+    void updateFilter();
 
     QLineEdit *lineEdit;
     QListView *listView;
     CommandPaletteFilterModel *filterModel;
+    QTimer *filterDebounceTimer;
+    QGraphicsDropShadowEffect *shadowEffect;
     QModelIndex rootIndex;
 };
 
@@ -88,6 +94,7 @@ class ActionDelegate : public QStyledItemDelegate {
 
     void paint(QPainter *painter, const QStyleOptionViewItem &option,
                const QModelIndex &index) const override;
+    QSize sizeHint(const QStyleOptionViewItem &option, const QModelIndex &index) const override;
 };
 
 class CommandPaletteFilterModel : public QSortFilterProxyModel {
@@ -99,13 +106,16 @@ class CommandPaletteFilterModel : public QSortFilterProxyModel {
         m_modes = modes;
         endResetModel();
     }
+    void refreshSorting() { invalidate(); }
 
   protected:
     bool filterAcceptsRow(int sourceRow, const QModelIndex &sourceParent) const override;
+    bool lessThan(const QModelIndex &left, const QModelIndex &right) const override;
 
   private:
     CommandPalette::FilterModes m_modes = CommandPalette::NoFilter;
 
+    QString currentPattern() const;
     bool fuzzyMatch(const QString &haystack, const QString &needle) const;
     bool fileMatch(const QString &haystack, const QString &needle) const;
 };

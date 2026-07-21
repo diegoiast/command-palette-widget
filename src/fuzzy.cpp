@@ -92,7 +92,7 @@ auto score(const QStringView query, const QStringView target) -> MatchResult {
     }
 
     for (auto i = 1; i < indices.size(); ++i) {
-        int gap = indices[i] - indices[i - 1] - 1;
+        auto gap = indices[i] - indices[i - 1] - 1;
         score -= gap * GAP_PENALTY;
     }
 
