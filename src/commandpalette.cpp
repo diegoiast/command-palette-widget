@@ -181,6 +181,7 @@ CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
         parentWidget->installEventFilter(this);
     }
     installEventFilter(this);
+    qApp->installEventFilter(this);
     hide();
 }
 
@@ -205,6 +206,19 @@ void CommandPalette::setFilterModes(FilterModes modes) { filterModel->setFilterM
 void CommandPalette::clearText() { lineEdit->clear(); }
 
 bool CommandPalette::eventFilter(QObject *obj, QEvent *event) {
+    if (obj == qApp && event->type() == QEvent::ApplicationPaletteChange) {
+        setPalette(qApp->palette());
+        shadowEffect->setColor(shadowColorForPalette(qApp->palette()));
+        for (auto *w : findChildren<QWidget *>()) {
+            style()->unpolish(w);
+            style()->polish(w);
+        }
+        style()->unpolish(this);
+        style()->polish(this);
+        update();
+        return false;
+    }
+
     if (!isVisible()) {
         return false;
     }
