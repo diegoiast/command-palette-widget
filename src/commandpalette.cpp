@@ -148,8 +148,8 @@ CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
         if (selected.isValid()) {
             selected = filterModel->mapToSource(selected);
             auto *sourceModel = filterModel->sourceModel();
-            hide();
             emit didChooseItem(selected, sourceModel);
+            hide();
         } else {
             hide();
         }
@@ -158,8 +158,8 @@ CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
         if (index.isValid()) {
             index = filterModel->mapToSource(index);
             auto *sourceModel = filterModel->sourceModel();
-            hide();
             emit didChooseItem(index, sourceModel);
+            hide();
         } else {
             hide();
         }
