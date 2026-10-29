@@ -29,16 +29,30 @@ auto shadowColorForPalette(const QPalette &palette) -> QColor {
     return luminance < 0.5 ? QColor(255, 255, 255, 140) : QColor(0, 0, 0, 180);
 }
 
+// Palette Base is a control fill, not a surface: styles such as WinUI3 keep it
+// translucent so it can sit on the window material. This panel floats above
+// arbitrary content of its own, so its background has to be opaque - resolve
+// the translucent role over the window color instead of letting whatever is
+// behind the palette show through it. The input palette must be the unwritten
+// application palette: setStyleSheet() feeds the resolved color back into the
+// widget palette, which would otherwise make every later call a no-op.
+auto opaqueSurfaceColor(const QPalette &palette) -> QColor {
+    auto surface = palette.color(QPalette::Base);
+    if (surface.alpha() == 255) {
+        return surface;
+    }
+    auto backdrop = palette.color(QPalette::Window);
+    auto alpha = surface.alphaF();
+    return QColor::fromRgbF(surface.redF() * alpha + backdrop.redF() * (1.0 - alpha),
+                            surface.greenF() * alpha + backdrop.greenF() * (1.0 - alpha),
+                            surface.blueF() * alpha + backdrop.blueF() * (1.0 - alpha));
+}
+
 } // namespace
 
 CommandPalette::CommandPalette(QWidget *parent) : QFrame(parent) {
     setFrameShape(QFrame::StyledPanel);
-    setStyleSheet(QString(R"(
-        CommandPalette {
-            background-color: palette(base);
-            border: 1px solid palette(mid);
-        }
-    )"));
+    refreshBackground();
 
     auto shadow = new QGraphicsDropShadowEffect(this);
     shadow->setBlurRadius(48);
@@ -262,6 +276,23 @@ void CommandPalette::changeEvent(QEvent *event) {
     QFrame::changeEvent(event);
     if (event->type() == QEvent::PaletteChange) {
         shadowEffect->setColor(shadowColorForPalette(palette()));
+        refreshBackground();
+    }
+}
+
+void CommandPalette::refreshBackground() {
+    auto surface = opaqueSurfaceColor(QApplication::palette());
+    auto stylesheet = QString(R"(
+        CommandPalette {
+            background-color: %1;
+            border: 1px solid palette(mid);
+        }
+    )")
+                              .arg(surface.name(QColor::HexRgb));
+    // setStyleSheet() repolishes the palette, which lands back here. Only
+    // rewrite the sheet when the resolved surface actually moved.
+    if (stylesheet != styleSheet()) {
+        setStyleSheet(stylesheet);
     }
 }
 

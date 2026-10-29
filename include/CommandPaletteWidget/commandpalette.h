@@ -58,6 +58,7 @@ class CommandPalette : public QFrame {
     void adjustPosition();
     void adjustSize();
     void updateFilter();
+    void refreshBackground();
 
     QLineEdit *lineEdit;
     QListView *listView;
